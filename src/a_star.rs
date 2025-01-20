@@ -1,86 +1,91 @@
-use crate::board::Board;
 use std::cmp::Ordering;
-use std::collections::{BinaryHeap, HashSet};
+use std::collections::{BinaryHeap, HashMap};
 
-// A node in the search space
+use crate::board::Board;
+
+// Define a state in the A* search
 #[derive(Eq, PartialEq)]
-struct Node {
-    board: Board,
-    cost: usize,      // Cost so far
-    heuristic: usize, // Heuristic estimate
+struct State {
+    pub board: Board,
+    pub cost: usize,   // g(n) + h(n)
+    pub g_cost: usize, // g(n)
 }
 
-impl Node {
-    pub fn new(board: Board, cost: usize, heuristic: usize) -> Self {
-        Node {
-            board,
-            cost,
-            heuristic,
-        }
-    }
-
-    // Priority value: cost + heuristic
-    pub fn priority(&self) -> usize {
-        self.cost + self.heuristic
-    }
-}
-
-// Custom ordering for the priority queue
-impl Ord for Node {
+impl Ord for State {
     fn cmp(&self, other: &Self) -> Ordering {
-        other.priority().cmp(&self.priority()) // Reverse for min-heap behavior
+        other.cost.cmp(&self.cost) // Reverse for min-heap behavior
     }
 }
 
-impl PartialOrd for Node {
+impl PartialOrd for State {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-// Manhattan Distance heuristic
+// Manhattan distance heuristic
 fn manhattan_distance(board: &Board) -> usize {
     let mut distance = 0;
-    for i in 0..board.size {
-        for j in 0..board.size {
-            let value = board.tiles[i][j];
-            if value != 0 {
-                let target_row = (value - 1) / board.size;
-                let target_col = (value - 1) % board.size;
-                distance += (i as isize - target_row as isize).abs() as usize
-                    + (j as isize - target_col as isize).abs() as usize;
+
+    for (row, tiles_row) in board.tiles.iter().enumerate() {
+        for (col, &tile) in tiles_row.iter().enumerate() {
+            if tile != 0 {
+                let target_row = (tile as usize - 1) / board.size;
+                let target_col = (tile as usize - 1) % board.size;
+                distance += (target_row as isize - row as isize).abs() as usize
+                    + (target_col as isize - col as isize).abs() as usize;
             }
         }
     }
+
     distance
 }
 
-// A* algorithm implementation
-pub fn solve(initial: Board) -> Option<Vec<Board>> {
+// A* search algorithm
+pub fn a_star(start: Board) -> Option<Vec<Board>> {
     let mut open_set = BinaryHeap::new();
-    let mut closed_set = HashSet::new();
+    let mut came_from: HashMap<Board, Board> = HashMap::new();
+    let mut g_score: HashMap<Board, usize> = HashMap::new();
 
-    // Start with the initial board
-    open_set.push(Node::new(initial.clone(), 0, manhattan_distance(&initial)));
+    open_set.push(State {
+        board: start.clone(),
+        cost: manhattan_distance(&start),
+        g_cost: 0,
+    });
 
-    while let Some(current) = open_set.pop() {
-        if current.board.is_goal() {
-            return Some(vec![current.board]); // Solved! Traceback not implemented for simplicity
+    g_score.insert(start.clone(), 0);
+
+    while let Some(current_state) = open_set.pop() {
+        let current_board = current_state.board;
+
+        // Check if goal is reached
+        if current_board.is_goal() {
+            let mut path = Vec::new();
+            let mut current = current_board;
+            while let Some(prev) = came_from.get(&current) {
+                path.push(current);
+                current = prev.clone();
+            }
+            path.push(start);
+            path.reverse();
+            return Some(path);
         }
 
-        if closed_set.contains(&current.board) {
-            continue;
-        }
-        closed_set.insert(current.board.clone());
+        // Explore neighbors
+        for (neighbor, move_cost) in current_board.neighbors() {
+            let tentative_g_score = g_score.get(&current_board).unwrap() + move_cost;
 
-        for neighbor in current.board.get_neighbors() {
-            if !closed_set.contains(&neighbor) {
-                let cost = current.cost + 1; // Cost of moving to a neighbor
-                let heuristic = manhattan_distance(&neighbor);
-                open_set.push(Node::new(neighbor, cost, heuristic));
+            if tentative_g_score < *g_score.get(&neighbor).unwrap_or(&usize::MAX) {
+                came_from.insert(neighbor.clone(), current_board.clone());
+                g_score.insert(neighbor.clone(), tentative_g_score);
+                open_set.push(State {
+                    board: neighbor.clone(),
+                    cost: tentative_g_score + manhattan_distance(&neighbor),
+                    g_cost: tentative_g_score,
+                });
             }
         }
     }
 
-    None // No solution found
+    None
 }

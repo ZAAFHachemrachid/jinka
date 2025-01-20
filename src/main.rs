@@ -1,24 +1,28 @@
 mod a_star;
 mod board;
 
-use a_star::solve;
+use a_star::a_star;
 use board::Board;
 
 fn main() {
-    let initial_board = Board::new(vec![vec![1, 2, 3], vec![4, 0, 5], vec![6, 7, 8]]);
+    // Example of an N×N puzzle (5×5 in this case)
+    let start = Board::new(vec![
+        vec![1, 2, 3, 4],
+        vec![13, 5, 11, 6],
+        vec![0, 10, 7, 15],
+        vec![14, 8, 9, 12],
+    ]);
 
-    println!("Initial Board:");
-    println!("{}", initial_board);
-
-    match solve(initial_board) {
-        Some(solution) => {
-            println!("Solution found!");
-            for (i, step) in solution.iter().enumerate() {
-                println!("Step {}:\n{}", i + 1, step);
+    // Run the A* algorithm
+    if let Some(solution) = a_star(start) {
+        println!("Solution found in {} moves:", solution.len() - 1);
+        for board in solution {
+            for row in &board.tiles {
+                println!("{:?}", row);
             }
+            println!();
         }
-        None => {
-            println!("No solution exists!");
-        }
+    } else {
+        println!("No solution found!");
     }
 }
