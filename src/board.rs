@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 // Represents the N×N board state
-#[derive(Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(Clone, Eq, PartialEq, Hash, Debug, serde::Serialize)]
 pub struct Board {
     pub tiles: Vec<Vec<u8>>,      // The board as a 2D vector
     pub zero_pos: (usize, usize), // (row, col) position of the empty tile (0)
